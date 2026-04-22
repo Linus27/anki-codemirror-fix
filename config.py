@@ -1,14 +1,12 @@
-# Not interesting just loading and saving configs...
-
 from aqt import mw
 
 ADDON_IDENTIFIER = None
 CONFIG = {}
 
-# UPDATED: We only need one key for the theme.
 CONFIG_KEY_GLOBAL_THEME = "global_theme"
 CONFIG_KEY_INJECT_MODELS = "injected_model_ids"
 CONFIG_KEY_BYPASS_MODELS = "bypassed_model_ids"
+CONFIG_KEY_LANGUAGES = "supported_languages" # NEW: Key for languages
 
 def load_config():
     """Loads the addon's configuration from disk."""
@@ -20,6 +18,7 @@ def load_config():
             CONFIG_KEY_GLOBAL_THEME: "dracula",
             CONFIG_KEY_INJECT_MODELS: [],
             CONFIG_KEY_BYPASS_MODELS: [],
+            CONFIG_KEY_LANGUAGES: ["python", "javascript", "clike", "css", "htmlmixed", "ruby", "sql", "xml"]
         }
         return
 
@@ -29,6 +28,7 @@ def load_config():
     CONFIG.setdefault(CONFIG_KEY_GLOBAL_THEME, "dracula")
     CONFIG.setdefault(CONFIG_KEY_INJECT_MODELS, [])
     CONFIG.setdefault(CONFIG_KEY_BYPASS_MODELS, [])
+    CONFIG.setdefault(CONFIG_KEY_LANGUAGES, ["python", "javascript", "clike", "css", "htmlmixed", "ruby", "sql", "xml"])
     
     CONFIG.update(loaded_config)
 

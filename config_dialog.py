@@ -1,10 +1,8 @@
-# This file is not very interesting (it handles the settings)
-
 import os
 from aqt import mw
 from aqt.qt import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
-    QPushButton, QWidget, QScrollArea, QGroupBox, Qt, QDialogButtonBox, QFrame, QEvent
+    QPushButton, QWidget, QScrollArea, QGroupBox, Qt, QDialogButtonBox, QFrame, QEvent, QLineEdit
 )
 from aqt.utils import tooltip, showInfo
 
@@ -63,36 +61,35 @@ class ConfigDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("CodeMirror Configuration")
         self.setMinimumWidth(550)
-        self.resize(550, 600)
+        self.resize(550, 650) # Slightly taller to fit new option
+
 
         self.all_models = sorted(mw.col.models.all(), key=lambda m: m['name'])
         
         layout = QVBoxLayout(self)
         layout.addWidget(self._create_theme_group())
+        layout.addWidget(self._create_language_group()) # NEW: Add Language input
 
         self.injection_widgets = []
         self.injection_rows_layout = QVBoxLayout()
         layout.addWidget(self._create_dynamic_notetype_group(
-            "2. Inject CodeMirror into Note Types",
+            "3. Inject CodeMirror into Note Types",
             "Select note types where you want to use CodeMirror code blocks.",
             self.injection_rows_layout,
             lambda: self._add_row_ui(self.injection_rows_layout, self.injection_widgets)
         ), 1)
-
         self.bypass_widgets = []
         self.bypass_rows_layout = QVBoxLayout()
         layout.addWidget(self._create_dynamic_notetype_group(
-            "3. Bypass 'Empty Field' Check",
+            "4. Bypass 'Empty Field' Check",
             "Select note types to bypass Anki's check for empty fields.",
             self.bypass_rows_layout,
             lambda: self._add_row_ui(self.bypass_rows_layout, self.bypass_widgets)
         ), 1)
-
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.on_save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-
         self.load_settings()
 
     def _create_theme_group(self):
@@ -113,6 +110,21 @@ class ConfigDialog(QDialog):
         layout.addWidget(self.theme_combo)
         group.setLayout(layout)
         return group
+
+    def _create_language_group(self):
+        group = QGroupBox("2. Supported Languages")
+        layout = QVBoxLayout()
+        desc = QLabel("Enter comma-separated folder names for the languages you want to support (e.g., python, javascript, rust, go). These folders must exist in user_files/codemirror/mode/.")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+        
+        self.lang_edit = QLineEdit()
+        self.lang_edit.setPlaceholderText("python, javascript, rust, ruby, sql")
+        layout.addWidget(self.lang_edit)
+        
+        group.setLayout(layout)
+        return group
+
     
     def _create_dynamic_notetype_group(self, title, description_text, rows_layout, add_function):
         group = QGroupBox(title)
@@ -175,6 +187,10 @@ class ConfigDialog(QDialog):
         current_theme = config.CONFIG.get(config.CONFIG_KEY_GLOBAL_THEME, 'dracula')
         self.theme_combo.setCurrentText(current_theme)
 
+        # NEW: Load selected languages into text box
+        langs = config.CONFIG.get(config.CONFIG_KEY_LANGUAGES, ["python", "javascript", "clike", "css", "htmlmixed"])
+        self.lang_edit.setText(", ".join(langs))
+
         inject_ids = config.CONFIG.get(config.CONFIG_KEY_INJECT_MODELS, [])
         for model_id in inject_ids:
             self._add_row_ui(self.injection_rows_layout, self.injection_widgets, model_id)
@@ -207,10 +223,15 @@ class ConfigDialog(QDialog):
             showInfo("Please select a theme.")
             return
 
+        # NEW: Parse, clean, and save languages
+        raw_langs = self.lang_edit.text().split(",")
+        cleaned_langs = [l.strip() for l in raw_langs if l.strip()]
+
         injected_ids = self._get_selected_ids_from_widgets(self.injection_widgets)
         bypassed_ids = self._get_selected_ids_from_widgets(self.bypass_widgets)
 
         config.CONFIG[config.CONFIG_KEY_GLOBAL_THEME] = selected_theme
+        config.CONFIG[config.CONFIG_KEY_LANGUAGES] = cleaned_langs # Save languages
         config.CONFIG[config.CONFIG_KEY_INJECT_MODELS] = injected_ids
         config.CONFIG[config.CONFIG_KEY_BYPASS_MODELS] = bypassed_ids
         

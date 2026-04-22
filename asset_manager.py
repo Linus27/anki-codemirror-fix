@@ -5,46 +5,26 @@
 # 3. Generating the necessary HTML to include these assets in Anki card templates.
 
 from pathlib import Path
-
 from aqt import mw
 from . import utils
-
-# --- Asset Definition ---
-# Lists of CSS and JS files required by the add-on. These paths are relative
-# to the add-on's root directory (USER_FILES_PATH).
+from . import config # Need config access here
 
 CSS_FILES = [
     "codemirror/lib/codemirror.css",
     "styles/reviewer_style.css",
 ]
 
-JS_FILES = [
+# Base JS files that are always required
+CORE_JS_FILES = [
     "codemirror/lib/codemirror.js",
     "codemirror/addon/runmode/runmode.js",
-    "codemirror/mode/meta.js",
-    "codemirror/mode/python/python.js",
-    "codemirror/mode/javascript/javascript.js",
-    "codemirror/mode/clike/clike.js",
-    "codemirror/mode/ruby/ruby.js",
-    "codemirror/mode/sql/sql.js",
-    "codemirror/mode/css/css.js",
-    "codemirror/mode/xml/xml.js",
-    "codemirror/mode/htmlmixed/htmlmixed.js",
-    "scripts/reviewer_script.js",
+    "codemirror/mode/meta.js"
 ]
 
-# A unique prefix for all assets copied to the media folder.
-# This is crucial to prevent filename conflicts with other add-ons or user media.
 PREFIX = "_codemirror_anki_"
 
-
 def get_prefixed_filename(path: Path) -> str:
-    """
-    Constructs the final filename for an asset to be stored in the media folder.
-    Example: 'python.js' -> '_codemirror_anki_python.js'
-    """
     return f"{PREFIX}{path.name}"
-
 
 def _sync_file(source_path: Path, media_dir: Path):
     """
@@ -85,15 +65,24 @@ def _sync_file(source_path: Path, media_dir: Path):
     data = source_path.read_bytes()
     mw.col.media.write_data(prefixed_name, data)
 
+def get_all_js_files():
+    supported_langs = config.CONFIG.get(config.CONFIG_KEY_LANGUAGES, ["python", "javascript", "clike", "css", "htmlmixed"])
+    
+    mode_files = []
+    # Safe load: Only sync files that exist
+    for lang in supported_langs:
+        mode_path = utils.USER_FILES_PATH / "codemirror" / "mode" / lang / f"{lang}.js"
+        if mode_path.exists():
+            mode_files.append(f"codemirror/mode/{lang}/{lang}.js")
+    
+    return CORE_JS_FILES + mode_files + ["scripts/reviewer_script.js"]
+
 
 def sync_assets_to_media_folder():
-    """
-    Iterates through all defined CSS and JS assets and syncs them
-    to the media folder using the _sync_file helper.
-    """
     media_dir = Path(mw.col.media.dir())
     addon_dir = utils.USER_FILES_PATH
-    files_to_sync = CSS_FILES + JS_FILES
+    # Use dynamic JS files list here
+    files_to_sync = CSS_FILES + get_all_js_files()
 
     for relative_path_str in files_to_sync:
         source_path = addon_dir / relative_path_str
@@ -110,36 +99,23 @@ def sync_theme_to_media_folder(theme_name: str):
 
 
 def get_mobile_resources_html(theme_name: str) -> str:
-    """
-    Generates an HTML block containing <link> and <script> tags for all assets.
-
-    This block is intended to be injected into Anki card templates. It ensures that
-    the necessary CSS and JS are loaded during card review.
-    """
-    # Trigger a sync every time this is called. This ensures that if the user
-    # changes a file or theme, the changes are immediately reflected in the
-    # media folder without needing an Anki restart.
     sync_assets_to_media_folder()
     sync_theme_to_media_folder(theme_name)
     
-    # Build the <link> tags for the CSS files.
     css_links = ""
     for file in CSS_FILES:
         filename = get_prefixed_filename(Path(file))
         css_links += f'<link rel="stylesheet" type="text/css" href="{filename}">'
     
-    # Add the link for the currently selected theme.
     theme_filename = get_prefixed_filename(Path(f"{theme_name}.css"))
     css_links += f'<link rel="stylesheet" type="text/css" href="{theme_filename}">'
 
-    # Build the <script> tags for the JavaScript files.
     js_links = ""
-    for file in JS_FILES:
+    # Call the new dynamic list builder here as well
+    for file in get_all_js_files():
         filename = get_prefixed_filename(Path(file))
         js_links += f'<script src="{filename}"></script>'
 
-    # Assemble the final HTML block. It's wrapped in a hidden div.
-    # A global JS variable is also created to pass the theme name to the scripts.
     return f"""
     <div id="{PREFIX}resources" style="display: none;">
         {css_links}
@@ -147,4 +123,3 @@ def get_mobile_resources_html(theme_name: str) -> str:
         {js_links}
     </div>
     """
-

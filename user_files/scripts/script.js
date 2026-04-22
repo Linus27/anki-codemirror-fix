@@ -1,6 +1,3 @@
-// This script initializes the CodeMirror editor inside the Anki dialog,
-// sets up its configuration, and handles communication back to the main Anki window.
-
 document.addEventListener("DOMContentLoaded", () => {
     // --- CONFIGURATION ---
     const config = window.CM_CONFIG || {};
@@ -11,27 +8,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- ELEMENT SETUP ---
     const insertButton = document.getElementById("insert-button");
-    const langSelect = document.getElementById("language-select");
+    const langSelect = document.getElementById("language-selector");
     const clozeButton = document.getElementById("cloze-button");
     const clozeSameButton = document.getElementById("cloze-same-button");
     const starterCodeButton = document.getElementById("starter-code-button");
 
-    if (insertButton) {
-        insertButton.textContent = buttonText;
-    }
-    if (langSelect) {
-        langSelect.value = initialLanguage;
-    }
-    
-    // =================================================================
-    // SECTION: Helper Functions
-    // =================================================================
+    if (insertButton) insertButton.textContent = buttonText;
 
-    /**
-     * Checks if a given RGB color is light or dark.
-     * @param {string} color - The RGB color string (e.g., "rgb(40, 42, 54)").
-     * @returns {boolean} - True if the color is light, false otherwise.
-     */
+    // --- HELPER FUNCTIONS ---
     function isColorLight(color) {
         if (!color) return false;
         const [r, g, b] = color.match(/\d+/g).map(Number);
@@ -39,10 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return luminance > 128;
     }
 
-    /**
-     * Reads the computed styles from the CodeMirror theme and applies them
-     * to the surrounding UI elements for a cohesive look.
-     */
     function syncUiToTheme() {
         setTimeout(() => {
             const cmElement = document.querySelector('.CodeMirror');
@@ -73,11 +53,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 50);
     }
 
-    /**
-     * Wraps the selected text with Anki's cloze syntax.
-     * @param {boolean} increment - If true, creates a new cloze number (c2, c3...). 
-     * If false, uses the last-used cloze number.
-     */
     function addCloze(increment) {
         const editor = window.editor;
         if (!editor) return;
@@ -98,27 +73,18 @@ document.addEventListener("DOMContentLoaded", () => {
         editor.focus();
     }
     
-    /** Inserts pre-defined starter code for the current language into the editor. */
     function insertStarterCode() {
         const editor = window.editor;
         if (!editor) return;
         const currentLanguage = editor.getOption("mode");
         const snippet = starterCode[currentLanguage];
-        if (snippet) {
-            editor.setValue(snippet);
-        }
+        if (snippet) editor.setValue(snippet);
         editor.focus();
     }
 
-    /**
-     * Encodes the editor's content and sends it back to Python.
-     */
     function submitCode() {
         const codeElement = document.querySelector(".CodeMirror-code");
-        if (!codeElement) {
-            console.error("Could not find the '.CodeMirror-code' element to get highlighted HTML.");
-            return;
-        }
+        if (!codeElement) return;
 
         const rawCode = window.editor.getValue();
         const highlightedHtml = codeElement.innerHTML;
@@ -130,56 +96,30 @@ document.addEventListener("DOMContentLoaded", () => {
         sendToPython(`insert_code:${currentLang}:${encodedRaw}:${encodedHtml}`);
     }
 
-    /**
-     * Robustly sends a command to Anki's Python backend.
-     * @param {string} command - The command string to send.
-     */
     function sendToPython(command) {
-        if (window.pybridge && window.pybridge.send) {
-            pybridge.send(command);
-        } else if (window.pycmd) {
-            pycmd(command);
-        } else {
-            console.error("No Anki communication bridge found.");
-        }
+        if (window.pybridge && window.pybridge.send) pybridge.send(command);
+        else if (window.pycmd) pycmd(command);
     }
 
-    /**
-     * Injects CSS into the document head to style the Vim command bar.
-     */
     function injectVimDialogStyles() {
         const styleId = 'cm-vim-dialog-styles';
         if (document.getElementById(styleId)) return;
-
         const style = document.createElement('style');
         style.id = styleId;
         style.innerHTML = `
-            .CodeMirror-dialog {
-                background-color: var(--ui-bg, #282a36);
-                color: var(--editor-fg, #f8f8f2);
-                border-top: 1px solid var(--ui-border, #6272a4);
-                padding: 0.4em 0.8em;
-            }
-
-            .CodeMirror-dialog input {
-                border: none;
-                outline: none;
-                background: transparent;
-                width: 20em;
-                color: inherit;
-                font-family: monospace;
-            }
+            .CodeMirror-dialog { background-color: var(--ui-bg, #282a36); color: var(--editor-fg, #f8f8f2); border-top: 1px solid var(--ui-border, #6272a4); padding: 0.4em 0.8em; }
+            .CodeMirror-dialog input { border: none; outline: none; background: transparent; width: 20em; color: inherit; font-family: monospace; }
         `;
         document.head.appendChild(style);
     }
 
-    // =================================================================
-    // SECTION: Editor Initialization and Event Listeners
-    // =================================================================
+    // --- EDITOR INITIALIZATION ---
+    // Read the starting language dynamically from the HTML select element (which Python generated)
+    const startingMode = langSelect ? langSelect.value : initialLanguage;
 
     const editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
         lineNumbers: true,
-        mode: initialLanguage,
+        mode: startingMode,
         theme: activeTheme,
         keyMap: "vim",
         autoCloseBrackets: true,
@@ -194,12 +134,10 @@ document.addEventListener("DOMContentLoaded", () => {
     window.editor = editor;
 
     editor.on('keydown', function(cm, event) {
-        if (event.key === 'Escape') {
-            event.stopPropagation();
-        }
+        if (event.key === 'Escape') event.stopPropagation();
     });
 
-    // --- Attach Event Listeners ---
+    // --- ATTACH EVENT LISTENERS ---
     if (insertButton) insertButton.addEventListener("click", submitCode);
     if (clozeButton) clozeButton.addEventListener("click", () => addCloze(true));
     if (clozeSameButton) clozeSameButton.addEventListener("click", () => addCloze(false));
@@ -209,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
         langSelect.addEventListener("change", (e) => {
             const newLang = e.target.value;
             editor.setOption("mode", newLang);
-            sendToPython(`set_lang:${newLang}`);
+            sendToPython(`set_lang:${newLang}`); // Sends save command to Python
             editor.focus();
         });
     }
@@ -227,12 +165,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- Final Setup ---
     setTimeout(() => {
         editor.focus();
         editor.refresh();
-        // Programmatically enter Insert Mode after the editor is ready.
-        // This ensures the user can start typing immediately.
         if (editor.state.vim && editor.state.vim.insertMode === false) {
             CodeMirror.Vim.handleKey(editor, 'i');
         }
@@ -241,4 +176,3 @@ document.addEventListener("DOMContentLoaded", () => {
     syncUiToTheme();
     injectVimDialogStyles();
 });
-
