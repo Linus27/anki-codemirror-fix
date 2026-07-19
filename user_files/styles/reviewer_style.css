@@ -22,6 +22,10 @@ This file gets synced to anki web so you can see the code instance also on mobil
 
     display: inline-block;
     vertical-align: middle;
+
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* This section controls how the code editor box is positioned 
@@ -29,9 +33,14 @@ on the review screen. It's best not to change this unless
 you know what you are doing.
 */
 .codemirror-anki {
-    display: inline-block;
+    display: block;
     margin: 0.5em 0;
     text-align: left;
-    overflow: hidden;
+    /* Changed from "hidden" to "auto": if width measurement is ever still
+    off (e.g. very long unwrapped lines), you can scroll to see the content
+    instead of it being silently clipped/invisible. */
+    overflow-x: auto;
+    overflow-y: hidden;
     vertical-align: middle;
+    max-width: 100%;
 }
